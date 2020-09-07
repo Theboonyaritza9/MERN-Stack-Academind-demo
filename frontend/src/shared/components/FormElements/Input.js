@@ -24,9 +24,9 @@ const inputReducer = (state, action) => {
 
 const Input = props => {
     const [inputState, dispatch] = useReducer(inputReducer, {
-        value: '',
+        value: props.initialValue || '',
         isTouched: false,
-        isValid: false
+        isValid: props.initialValid || false
     });
 
     const { id, onInput } = props;
@@ -34,9 +34,6 @@ const Input = props => {
 
     useEffect(() => {
         onInput(id, value, isValid)
-        return () => {
-            //
-        }
     }, [id, value, isValid, onInput]);
 
     const changeHandler = event => {
@@ -86,3 +83,4 @@ const Input = props => {
 };
 
 export default Input;
+
