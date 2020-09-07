@@ -1,14 +1,15 @@
 import React from 'react'
 
 import UserItem from './UserItem';
-import './UserList.css'
+import Card from '../../shared/components/UIElements/Card';
+import './UserList.css';
 
 export default function UserList(props) {
     if (props.items.length === 0) {
         return (
-            <div className="center">
+            <Card className="center">
                 <h2>No users found.</h2>
-            </div>
+            </Card>
         );
     }
 
