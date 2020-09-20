@@ -1,3 +1,6 @@
 1. part 46 and 47 about Portals in file Index.html, SideDrawer.js and MainNavigation.js
 2. react-transition-group is about a animation
 - SideDrawer.js
+
+backend
+- function async always uses next() to return the middleware
