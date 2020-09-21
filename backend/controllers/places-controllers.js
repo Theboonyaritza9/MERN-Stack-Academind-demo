@@ -1,30 +1,15 @@
-const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
-const HttpError = require("../models/http-error");
 
+const HttpError = require('../models/http-error');
 const getCoordsForAddress = require('../util/location');
 const Place = require('../models/place');
 const User = require('../models/user');
-// const mongooseUniqueValidator = require('mongoose-unique-validator');
-
-// let DUMMY_PLACES = [
-//     {
-//         id: 'p1',
-//         title: 'RRRRRRRRRRR1',
-//         description: 'Im a Hacker',
-//         imageUrl: "https://images.unsplash.com/photo-1599403565492-12a203677c48?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1187&q=80",
-//         address: "แขวง พระโขนง เขตคลองเตย กรุงเทพมหานคร 10110",
-//         location: {
-//             lat: 13.708668,
-//             lng: 100.6028571
-//         },
-//         creator: "u1"
-//     }
-// ]
 
 const getPlaceById = async (req, res, next) => {
-    const placeId = req.params.pid; // { pid: 'p1' }
+    const placeId = req.params.pid;
 
     let place;
     try {
@@ -39,101 +24,104 @@ const getPlaceById = async (req, res, next) => {
 
     if (!place) {
         const error = new HttpError(
-            'Could not find a place for the provided id.',
+            'Could not find place for the provided id.',
             404
         );
         return next(error);
     }
 
-    res.json({ place: place.toObject({ getters: true }) }); // => { place } => { place: place }
+    res.json({ place: place.toObject({ getters: true }) });
 };
-
-// function getPlaceById() { ... }
-// const getPlaceById = function() { ... }
 
 const getPlacesByUserId = async (req, res, next) => {
     const userId = req.params.uid;
 
     // let places;
-    let userWithPlaces
+    let userWithPlaces;
     try {
         userWithPlaces = await User.findById(userId).populate('places');
     } catch (err) {
         const error = new HttpError(
-            'Fetching places failed, please try again later',
+            'Fetching places failed, please try again later.',
             500
         );
         return next(error);
     }
 
-    // if (!places || places.legth === 0)
+    // if (!places || places.length === 0) {
     if (!userWithPlaces || userWithPlaces.places.length === 0) {
         return next(
             new HttpError('Could not find places for the provided user id.', 404)
         );
     }
 
-    res.json({ places: userWithPlaces.places.map(place => place.toObject({ getters: true })) });
+    res.json({
+        places: userWithPlaces.places.map(place =>
+            place.toObject({ getters: true })
+        )
+    });
 };
 
-const createPlaces = async (req, res, next) => {
+const createPlace = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        // console.log(errors)
-        return next(new HttpError("Invalid inputs passed, places check your data.", 422));
+        return next(
+            new HttpError('Invalid inputs passed, please check your data.', 422)
+        );
     }
+
     const { title, description, address, creator } = req.body;
 
     let coordinates;
-
     try {
         coordinates = await getCoordsForAddress(address);
     } catch (error) {
-        next(error);
+        return next(error);
     }
+
     const createdPlace = new Place({
         title,
         description,
         address,
         location: coordinates,
-        image: 'https://images.unsplash.com/photo-1599403565492-12a203677c48?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1187&q=80',
+        image: req.file.path,
         creator
     });
 
     let user;
-
-    try{
-        user = await User.findById(creator);
-    } catch (err) {
-        const error = new HttpError(
-            "Creating place failed, please try again",
-            500
-        );
-        return next(error);
-    }
-
-    if(!user) {
-        const error = new HttpError('Could not find user for provided id', 404);
-        return next(error);
-    }
-
-    console.log(user)
-
     try {
-        const sess = await mongoose.startSession();
-        sess.startTransaction();
-        await createdPlace.save({session: sess});
-        user.places.push(createdPlace);
-        await user.save({session: sess});
-        sess.commitTransaction();
+        user = await User.findById(creator);
     } catch (err) {
         const error = new HttpError(
             'Creating place failed, please try again.',
             500
         );
-        return next(error)
+        return next(error);
     }
-    res.status(201).json({ place: createdPlace })
+
+    if (!user) {
+        const error = new HttpError('Could not find user for provided id.', 404);
+        return next(error);
+    }
+
+    console.log(user);
+
+    try {
+        const sess = await mongoose.startSession();
+        sess.startTransaction();
+        await createdPlace.save({ session: sess });
+        user.places.push(createdPlace);
+        await user.save({ session: sess });
+        await sess.commitTransaction();
+    } catch (err) {
+        const error = new HttpError(
+            'Creating place failed, please try again.',
+            500
+        );
+        return next(error);
+    }
+
+    res.status(201).json({ place: createdPlace });
 };
 
 const updatePlace = async (req, res, next) => {
@@ -188,17 +176,19 @@ const deletePlace = async (req, res, next) => {
         return next(error);
     }
 
-    if(!place) {
+    if (!place) {
         const error = new HttpError('Could not find place for this id.', 404);
         return next(error);
     }
 
+    const imagePath = place.image;
+
     try {
         const sess = await mongoose.startSession();
         sess.startTransaction();
-        await place.remove({session:sess});
+        await place.remove({ session: sess });
         place.creator.places.pull(place);
-        await place.creator.save({session: sess});
+        await place.creator.save({ session: sess });
         await sess.commitTransaction();
     } catch (err) {
         const error = new HttpError(
@@ -208,11 +198,15 @@ const deletePlace = async (req, res, next) => {
         return next(error);
     }
 
+    fs.unlink(imagePath, err => {
+        console.log(err);
+    });
+
     res.status(200).json({ message: 'Deleted place.' });
 };
 
 exports.getPlaceById = getPlaceById;
 exports.getPlacesByUserId = getPlacesByUserId;
-exports.createPlaces = createPlaces;
+exports.createPlace = createPlace;
 exports.updatePlace = updatePlace;
 exports.deletePlace = deletePlace;
