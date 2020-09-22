@@ -51,7 +51,10 @@ app.use((error, req, res, next) => {
 const db = 'mongodb+srv://admin:1234@mongo3-crud.7dsrv.mongodb.net/academind-demo?retryWrites=true&w=majority'
 
 mongoose
-    .connect('mongodb+srv://admin:1234@mongo3-crud.7dsrv.mongodb.net/academind-demo?retryWrites=true&w=majority')
+    .connect(
+        `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@mongo3-crud.7dsrv.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`,
+        { useUnifiedTopology: true, useNewUrlParser: true, useCreateIndex: true }
+    )
     .then(() => {
         app.listen(5000);
     })

@@ -1,0 +1,9 @@
+{
+    "env": {
+        "DB_USER": "admin",
+        "DB_PASSWORD": "1234",
+        "DB_NAME": "academind-demo",
+        "GOOGLE_API_KEY": "...",
+        "JWT_KEY": "supersecret_dont_share"
+    }
+}
